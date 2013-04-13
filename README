@@ -12,4 +12,10 @@ Compilation:
 When launching BluezMove for the first time, it will create an empty configuration file in $HOME/.bluezmove.
 The default scanning delay is set to 20 seconds, it's harcored in the file, but will be add in config file soon.
 
+You can add as many Start and Stop scripts as you want, but they need to be set as executable (chmod +x).
+The scripts could be python, ruby, C, bash, anything you want !
+
+To add a script, just change the line as follow:
+	Start = ["/home/user/start.py"]; -> Start = ["/home/user/start.py","/home/user/script1.rb"];
+
 Enjoy and feel free to share your feedback

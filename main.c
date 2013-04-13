@@ -264,7 +264,7 @@ bDevice **scanDevices(){
 }
 
 /*
-	Creates empty configuration file in $HOME named .proximity
+	Creates empty configuration file in $HOME named .bluezmove
 	Keeps this wrong Indentation so the structure of the file looks clearer
 	This function uses libconfig
 */
@@ -314,7 +314,7 @@ char **loadScripts(config_setting_t *node){
 }
 
 /* 
-	Loads configuration from file : $HOME/.proximity
+	Loads configuration from file : $HOME/.bluezmove
 	Returns an array of dConfig filled for each device
 	Tries to create the configuration file if it doesn't exist
 	Uses libconfig
@@ -322,7 +322,7 @@ char **loadScripts(config_setting_t *node){
 dConfig **loadConfig(){ 
 	config_t cfg;
 	char *home = getenv("HOME");
-	char file[] = "/.proximity";
+	char file[] = "/.bluezmove";
 	char buffer[MAX_NAME_LENGTH] = { 0 };
 	int nbDevices = 0, i = 0;
 	dConfig **configuration = NULL;
