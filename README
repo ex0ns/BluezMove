@@ -1,4 +1,8 @@
 BluezMove is a "copy" of https://github.com/revned/proximity which can be used on Linux.
+With BluezMove, you can run script when your bluetooth devices are near or far.
+When a device is detected (or is not longer detected), the scripts are run automatically.
+The scripts could be written in python, ruby, C, bash, anything you want !
+
 This project needs the following librairies to work :
 	- libconfig
 	- bluez
@@ -13,7 +17,6 @@ When launching BluezMove for the first time, it will create an empty configurati
 The default scanning delay is set to 20 seconds, it's harcored in the file, but will be add in config file soon.
 
 You can add as many Start and Stop scripts as you want, but they need to be set as executable (chmod +x).
-The scripts could be python, ruby, C, bash, anything you want !
 
 To add a script, just change the line as follow:
 	Start = ["/home/user/start.py"]; -> Start = ["/home/user/start.py","/home/user/script1.rb"];
