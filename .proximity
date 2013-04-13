@@ -1,7 +1,0 @@
-devices = ( {
-	MAC   = "FF:FF:FF:FF:FF:FF";
-	Name  = "Phone";
-	Start = ["/home/user/start.py"];
-	Stop  = ["/home/user/stop.py"];
-	}
-)
