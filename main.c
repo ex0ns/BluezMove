@@ -523,16 +523,13 @@ int main(int argc, char **argv){
 	if(pid > 0){ // Parent process
 		exit(0);
 	}
-	/* Child process */
+ 	// Child
 	sid = setsid();
-	if(sid < 0){
+	if(sid < 0){ 
 		printf("Sid problem\n");
 
 	}
-	
-	close(STDIN_FILENO);
-	close(STDOUT_FILENO);
-	close(STDERR_FILENO);
+
 
 	timer_t 		 	timer;
 	struct sigaction 	sa;
