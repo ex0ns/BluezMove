@@ -512,6 +512,28 @@ void scan(int sig, siginfo_t *si, void *uc){
 
 
 int main(int argc, char **argv){
+	pid_t sid = 0;
+	pid_t pid = 0;
+	pid = fork();
+	if(pid < 0){
+		perror("Fork failed\n");
+		exit(1);
+	}
+
+	if(pid > 0){ // Parent process
+		exit(0);
+	}
+	/* Child process */
+	sid = setsid();
+	if(sid < 0){
+		printf("Sid problem\n");
+
+	}
+	
+	close(STDIN_FILENO);
+	close(STDOUT_FILENO);
+	close(STDERR_FILENO);
+
 	timer_t 		 	timer;
 	struct sigaction 	sa;
 	struct sigevent	 	se;
