@@ -3,12 +3,12 @@
 	Author 	    : ex0ns (http://ex0ns.me)
 	Started     : April 2013
 */
-#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>	
-#include <signal.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/hci.h>
@@ -20,7 +20,7 @@
 #define MAX_NAME_LENGTH   	248
 #define BT_ADDRESS_LENGTH	18
 #define SIGNAL 			SIGRTMIN
-#define WAIT_TIME		20 /* WARNING : Must be high enough so the scan could not be called twice simultaneously */
+#define WAIT_TIME		20
 
 /*
 	bDevice is a structure used to store the detected bluetooth devices
@@ -323,7 +323,6 @@ dConfig **loadConfig(){
 	config_t cfg;
 	char *home = getenv("HOME");
 	char file[] = "/.bluezmove";
-	char buffer[MAX_NAME_LENGTH] = { 0 };
 	int nbDevices = 0, i = 0;
 	dConfig **configuration = NULL;
 	config_setting_t *devices;
@@ -497,68 +496,48 @@ usedDevices *detectChanges(bDevice **devices, dConfig **config){
 }
 
 /*
-	Callback of the SIGEV_SIGNAL, each 20s
+	Called every WAIT_TIME seconds
 	Loads the configuration from file
 	Starts to scan for nearby devices
 	Checks if there are matches between the two (and with uDevices)
 */
-void scan(int sig, siginfo_t *si, void *uc){
-	dConfig **config = loadConfig();
+void scan(dConfig **config){
 	bDevice **devices = scanDevices();
 	uDevices = detectChanges(devices, config);
 	freedDevices(devices, -1);
-	freedConfig(config, -1);
 }
 
 
 int main(int argc, char **argv){
 	pid_t sid = 0;
-	pid_t pid = 0;
-	pid = fork();
-	if(pid < 0){
-		perror("Fork failed\n");
-		exit(1);
-	}
+	pid_t child, pid = 0;
+	if((child = fork()) == 0){
+		/* Child process */
+		sid = setsid();
+		if(sid < 0){
+			perror("Couln't create the session");
+			exit(1);
+		}
+		umask(0);
+		close(STDIN_FILENO);
+    	close(STDOUT_FILENO);
+    	close(STDERR_FILENO);
 
-	if(pid > 0){ // Parent process
+		if((pid = fork()) != 0){
+			exit(0);
+		}
+		/* GrandChild process */
+		dConfig **config = loadConfig();
+		for(;;){
+			sleep(WAIT_TIME);
+			scan(config);
+		}	
+		freedConfig(config, -1);
+	}else{ // Parent process
 		exit(0);
 	}
- 	// Child
-	sid = setsid();
-	if(sid < 0){ 
-		printf("Sid problem\n");
 
-	}
-
-
-	timer_t 		 	timer;
-	struct sigaction 	sa;
-	struct sigevent	 	se;
-	struct itimerspec	valueTimer;
-
-	memset(&sa, 0, sizeof(struct sigaction));
-	sa.sa_flags 		= SA_SIGINFO;
-	sa.sa_sigaction 	= scan;
-	sigemptyset(&sa.sa_mask);
-	if(sigaction(SIGNAL, &sa, NULL) == -1)
-		perror("Sigaction");
-
-	memset(&se, 0, sizeof(struct sigevent));
-	se.sigev_notify 		 = SIGEV_SIGNAL;
-	se.sigev_signo  		 = SIGNAL;
-	se.sigev_value.sival_ptr = &timer;
-	if(timer_create(CLOCK_REALTIME, &se, &timer) == -1)
-		perror("timer_create");
 	
-	valueTimer.it_interval.tv_sec  = WAIT_TIME;
-	valueTimer.it_interval.tv_nsec = 0;
-	valueTimer.it_value.tv_sec 	   = valueTimer.it_interval.tv_sec;
-	valueTimer.it_value.tv_nsec	   = valueTimer.it_interval.tv_nsec;
-	if(timer_settime(timer, 0, &valueTimer, NULL) == -1)
-		perror("timer_settime");
-
-	for(;;)
-		pause();	
 
 	return 0;
 }
