@@ -9,9 +9,11 @@ This project needs the following librairies to work :
 
 On Fedora you can install them easily with:
 	yum install bluez-libs-devel libconfig libconfig-devel
+For Ubuntu:
+	apt-get install libconfig-dev libbluetooth-dev
 
 Compilation:
-	gcc main.c -lbluetooth -lconfig
+	gcc main.c -lbluetooth -lconfig -W -Wall
 
 When launching BluezMove for the first time, it will create an empty configuration file in $HOME/.bluezmove.
 The default scanning delay is set to 20 seconds, it's harcored in the file, but will be add in config file soon.
