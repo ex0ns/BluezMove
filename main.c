@@ -1,11 +1,14 @@
 /*  
-  Compilation : gcc main.c -lrt -lbluetooth -lconfig
+  Compilation : gcc main.c -lrt -lbluetooth -lconfig -W -Wall
   Author      : ex0ns (http://ex0ns.me)
   Started     : April 2013
 */
+#include <errno.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <string.h>
+#include <syslog.h>
 #include <unistd.h> 
 #include <sys/wait.h>
 #include <sys/stat.h>
@@ -23,6 +26,7 @@
 #define WAIT_TIME           2
 #define CONFIG_FILE         "/.bluezmove"
 #define LOCK_FILE           "/tmp/bluezmove.lock"
+#define LOG_NAME            "BluezMove"
 
 /*
   bDevice is a structure used to store the detected bluetooth devices
@@ -234,16 +238,15 @@ bDevice **scanDevices(){
   int adaptor, connection, nbDevice, i;
   int timeout = 8;
   int flag = IREQ_CACHE_FLUSH; // Always flush the bluetooth scan before scanning
-
   adaptor = hci_get_route(NULL); // First available local bluetooth adaptor
   if(adaptor < 0){
-    perror("Please connect a bluetooth adaptor");
+    syslog(LOG_ERR, "%s", strerror(errno));
     exit(-1);
   }
   connection = hci_open_dev(adaptor); // Bluetooth socket
 
   if(connection < 0){
-    perror("Unable to open socket");
+    syslog(LOG_ERR, "%s", strerror(errno));
     exit(-1);
   }
   else{
@@ -251,7 +254,7 @@ bDevice **scanDevices(){
       exit(0);
     nbDevice = hci_inquiry(adaptor, timeout, MAX_DEVICES, NULL, &targets, flag); // Start scanning for nearby devices
     if(nbDevice < 0){
-      perror("No device available");
+      syslog(LOG_ERR, "%s", strerror(errno));
     }else{
       if((devices = malloc((nbDevice+1) * sizeof devices[0])) == NULL)
         exit(1);
@@ -264,6 +267,7 @@ bDevice **scanDevices(){
         if(hci_read_remote_name(connection, &(targets+i)->bdaddr, sizeof(buffer), buffer, 0) < 0) // Human readable device name
           strcpy(buffer, "[Unknow]");
         devices[i]->name = strdup(buffer);
+        syslog(LOG_INFO, "Device detected: %s", devices[i]->name);
       }
       devices[i] = NULL;
     }
@@ -296,12 +300,12 @@ int generateEmptyConfig(char *file){
 
   if(! config_write_file(&cfg, file))
   {
-    printf("Error while writing default configuration file.\n");
+    syslog(LOG_ERR, "Error while writing default configuration file, %s\n", file);
     config_destroy(&cfg);
     return 0;
   }
 
-  printf("New configuration successfully written to: %s\n", file);
+  syslog(LOG_ERR, "New configuration successfully written to: %s\n", file);
 
   config_destroy(&cfg);
   return 1;
@@ -347,7 +351,7 @@ dConfig **loadConfig(){
 
   if(access(home, F_OK) == 0){
     if(!config_read_file(&cfg, home)){
-      perror("Can't open the config file");
+      syslog(LOG_ERR, "%s", strerror(errno));
     }else{
       devices = config_lookup(&cfg, "devices");
       if(devices != NULL){
@@ -365,11 +369,11 @@ dConfig **loadConfig(){
           if((deviceSetup = malloc(sizeof(bDevice))) == NULL)
             exit(1);
           if(!config_setting_lookup_string(device, "MAC", &address)){
-            perror("Must set a valid MAC address for device");
+            syslog(LOG_ERR, "%s", strerror(errno));
           }
           memcpy(deviceSetup->address, address, BT_ADDRESS_LENGTH);
           if(!config_setting_lookup_string(device, "Name", &name)){
-            perror("Must set a valid Name for device");
+            syslog(LOG_ERR  , "%s", strerror(errno));
           }
 
           deviceSetup->name = strdup(name);
@@ -415,11 +419,11 @@ void launchstartScripts(dConfig *config){
       wait(&status);
     }else{
       if(access(config->startScripts[i], F_OK|X_OK) == 0){
-        printf("Launching : %s\n", config->startScripts[i]);
+        syslog(LOG_INFO, "Starting command: %s", config->startScripts[i]);
         args[2] = config->startScripts[i];
         execvp(args[0], args);
       }else{
-        printf("Unable to launch : %s\n", config->startScripts[i]);
+        syslog(LOG_INFO, "Unable to start command: %s", config->startScripts[i]);
       }
     }
     i++;
@@ -436,11 +440,11 @@ void launchstopScripts(dConfig *config){
       wait(&status);
     }else{
       if(access(config->stopScripts[i], F_OK|X_OK) == 0){
-        printf("Launching : %s\n", config->stopScripts[i]);
+        syslog(LOG_INFO, "Starting command: %s", config->stopScripts[i]);
         args[2] = config->stopScripts[i];
         execvp(args[0], args);
       }else{
-        printf("Unable to launch : %s\n", config->stopScripts[i]);
+        syslog(LOG_INFO, "Unable to start command: %s", config->stopScripts[i]);
       }
     }
     i++;
@@ -485,7 +489,7 @@ usedDevices *cleanUDevices(bDevice **devices, dConfig **config){
   usedDevices *temp = uDevices;
   while(temp != NULL){
     if(!inDevices(devices, temp->device->address)){
-      printf("Removing %s\n", temp->device->address );
+      syslog(LOG_INFO, "Removing device: %s", temp->device->address);
       launchstopScripts(findConfig(config, temp->device->address ));
       uDevices = pop(temp->device->address);
       temp = uDevices;
@@ -560,6 +564,8 @@ int main(void){
   pid_t sid = 0;
   pid_t child, pid = 0;
   
+  openlog(LOG_NAME, LOG_PID, LOG_USER);
+
   if((child = fork()) == 0){
     // Child process 
     sid = setsid();
@@ -588,6 +594,5 @@ int main(void){
   }
 
   return 0;
-
 }
 
