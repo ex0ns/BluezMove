@@ -19,8 +19,9 @@
 #define MAX_DEVICES 		10
 #define MAX_NAME_LENGTH   	248
 #define BT_ADDRESS_LENGTH	18
-#define SIGNAL 			SIGRTMIN
-#define WAIT_TIME		20
+#define SIGNAL 				SIGRTMIN
+#define WAIT_TIME			2
+#define CONFIG_FILE 		"/.bluezmove"
 
 /*
 	bDevice is a structure used to store the detected bluetooth devices
@@ -60,8 +61,14 @@ usedDevices *uDevices = NULL;
 	Returns usedDevices so the global variable is always up to date !
 */
 usedDevices *append(bDevice *device){
-	usedDevices *newDevice = malloc(sizeof(usedDevices));
-	bDevice *copy = malloc(sizeof(bDevice));
+	usedDevices *newDevice;
+	bDevice *copy;
+
+	if((newDevice = malloc(sizeof(usedDevices))) == NULL)
+		exit(1);
+	if((copy = malloc(sizeof(bDevice))) == NULL)
+		exit(1);
+	
 	strcpy(copy->address, device->address);
 	copy->name = strdup(device->name);
 	newDevice->device = copy;
@@ -239,14 +246,17 @@ bDevice **scanDevices(){
 		exit(-1);
 	}
 	else{
-		targets = (inquiry_info*)malloc(MAX_DEVICES * sizeof(inquiry_info));
+		if((targets = (inquiry_info*)malloc(MAX_DEVICES * sizeof(inquiry_info))) == NULL)
+			exit(0);
 		nbDevice = hci_inquiry(adaptor, timeout, MAX_DEVICES, NULL, &targets, flag); // Start scanning for nearby devices
 		if(nbDevice < 0){
 			perror("No device available");
 		}else{
-			devices = malloc((nbDevice+1) * sizeof devices[0]);
+			if((devices = malloc((nbDevice+1) * sizeof devices[0])) == NULL)
+				exit(1);
 			for(i = 0; i < nbDevice; i++){
-				devices[i] = malloc(sizeof(bDevice));
+				if((devices[i] = malloc(sizeof(bDevice))) == NULL)
+					exit(1);
 				memset(devices[i]->address, 0, sizeof(devices[i]->address));
 				ba2str(&(targets+i)->bdaddr, devices[i]->address); // Stores the addres in a hex format
 				memset(buffer, 0, sizeof(buffer));
@@ -303,11 +313,14 @@ int generateEmptyConfig(char *file){
 */
 char **loadScripts(config_setting_t *node){
 	int size = config_setting_length(node), i = 0;
-	char **scripts = malloc(sizeof scripts[0]);
+	char **scripts;
+	if((scripts = malloc(sizeof scripts[0])) == NULL)
+		exit(0);
 	for(i = 0; i < size; i++){
 		const char* script = config_setting_get_string_elem(node,i);
 		scripts[i] = strdup(script);
-		scripts = realloc(scripts, (i+2)*sizeof(*scripts));
+		if((scripts = realloc(scripts, (i+2)*sizeof(*scripts))) == NULL)
+			exit(1);
 	}
 	scripts[i] = NULL;
 	return scripts;
@@ -322,29 +335,33 @@ char **loadScripts(config_setting_t *node){
 dConfig **loadConfig(){ 
 	config_t cfg;
 	char *home = getenv("HOME");
-	char file[] = "/.bluezmove";
 	int nbDevices = 0, i = 0;
 	dConfig **configuration = NULL;
 	config_setting_t *devices;
 
 
-	home = memcpy(malloc(strlen(home)+strlen(file)+1), home, strlen(home)+1);
-	strcat(home, file);
+	home = memcpy(malloc(strlen(home)+strlen(CONFIG_FILE)+1), home, strlen(home)+1);
+	strcat(home, CONFIG_FILE);
 	config_init(&cfg);
 
 	if(access(home, F_OK) == 0){
 		if(!config_read_file(&cfg, home)){
-			perror("Can't open the file");
+			perror("Can't open the config file");
 		}else{
 			devices = config_lookup(&cfg, "devices");
 			if(devices != NULL){
 				nbDevices = config_setting_length(devices);
-				configuration = malloc((nbDevices+1)*sizeof(configuration[0]));
+				if((configuration = malloc((nbDevices+1)*sizeof(configuration[0]))) == NULL)
+					exit(1);
 				for(i = 0; i < nbDevices; i++){
 					const char *address, *name;
+					bDevice *deviceSetup;
 					config_setting_t *device = config_setting_get_elem(devices, i);
-					configuration[i] = malloc(sizeof(dConfig));
-					bDevice *deviceSetup = malloc(sizeof(bDevice));
+					
+					if((configuration[i] = malloc(sizeof(dConfig))) == NULL)
+						exit(1);
+					if((deviceSetup = malloc(sizeof(bDevice))) == NULL)
+						exit(1);
 					if(!config_setting_lookup_string(device, "MAC", &address)){
 						perror("Must set a valid MAC address for device");
 					}
@@ -508,11 +525,11 @@ void scan(dConfig **config){
 }
 
 
-int main(int argc, char **argv){
+int main(void){
 	pid_t sid = 0;
 	pid_t child, pid = 0;
 	if((child = fork()) == 0){
-		/* Child process */
+		// Child process 
 		sid = setsid();
 		if(sid < 0){
 			perror("Couln't create the session");
@@ -526,7 +543,7 @@ int main(int argc, char **argv){
 		if((pid = fork()) != 0){
 			exit(0);
 		}
-		/* GrandChild process */
+		//  GrandChild process
 		dConfig **config = loadConfig();
 		for(;;){
 			sleep(WAIT_TIME);
@@ -537,8 +554,7 @@ int main(int argc, char **argv){
 		exit(0);
 	}
 
-	
-
 	return 0;
+
 }
 
