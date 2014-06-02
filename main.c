@@ -89,46 +89,35 @@ usedDevices *append(bDevice *device){
   return uDevices;
 }
 
+void freeDevice(usedDevices* tmp){
+  free(tmp->device->name);
+  free(tmp->device);
+  free(tmp);
+}
+
 /* 
   This function remove a device (bDevice) from the list of current connected device 
   Returns usedDevices so the global variable is always up to date !
 */
 usedDevices *pop(char *address){
   if(uDevices != NULL){
-    usedDevices *temp = uDevices;
+    usedDevices *tmp = uDevices;
     usedDevices *prec = NULL;
-    while(temp != NULL){
-      if(strcmp(temp->device->address, address) == 0){
-        if(prec == NULL && temp->next == NULL){ // Only one device in the list
-          free(temp->device->name);
-          free(temp->device);
-          free(temp);
-          return NULL;
-        }
-        if(prec == NULL && temp->next != NULL){ // Remove first device of the list
-          prec = temp->next;
-          free(temp->device->name);
-          free(temp->device);
-          free(temp);
+    while(tmp != NULL){
+      if(strcmp(tmp->device->address, address) == 0){
+        if(prec == NULL){ // Remove first device of the list
+          prec = tmp->next;
+          freeDevice(tmp);
           return prec;
         }
-        if(prec != NULL && temp->next != NULL){ // Remove a device in the list (not the latest)
-          prec->next = temp->next;
-          free(temp->device->name);
-          free(temp->device);
-          free(temp);
-          return uDevices;
-        }
-        if(prec != NULL && temp->next == NULL){ // Remove the last device of the list
-          prec->next = NULL;
-          free(temp->device->name);
-          free(temp->device);
-          free(temp);
+        else{ // Remove a device in the list
+          prec->next = tmp->next;
+          freeDevice(tmp);
           return uDevices;
         }
       }
-      prec = temp;
-      temp = temp->next;
+      prec = tmp;
+      tmp = tmp->next;
     }
   }
 
@@ -553,7 +542,7 @@ void check_already_running(){
   fl.l_type = F_WRLCK;
   fl.l_whence = SEEK_SET; 
   if (fcntl(fd, F_SETLK, &fl) < 0) {
-    printf("Another instance is already running\n");
+    syslog(LOG_INFO, "Another instance is already running\n");
     exit(0);
   }
   atexit(unlock);
